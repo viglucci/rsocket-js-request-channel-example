@@ -2,7 +2,6 @@ const { RSocketClient } = require('rsocket-core');
 const RSocketWebsocketClient = require('rsocket-websocket-client').default;
 const WebSocket = require('ws');
 const { Flowable } = require('rsocket-flowable');
-const getRandomLetter = require('./random-letter');
 
 const transportOptions = {
   url: 'ws://localhost:7777',
