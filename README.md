@@ -1,5 +1,7 @@
 # rsocket-js-request-channel-example
 
+Based on [https://github.com/netifi/rsocketjs-channel-demo](https://github.com/netifi/rsocketjs-channel-demo).
+
 This project demonstrates a simple requestChannel setup over a websocket between two Node servers.
 
 ## Setup
