@@ -4,10 +4,13 @@ const { Flowable } = require('rsocket-flowable');
 const { fromEvent } = require('rxjs');
 const LetterEmitter = require('./lib/LetterEmitter');
 const { buildMessage } = require('./lib/util');
+const logger = require('./lib/logger');
 
-const EMIT_LETTER_INTERVAL = 250;
+const EMIT_LETTER_INTERVAL = 10;
 const letterEmitter = new LetterEmitter(EMIT_LETTER_INTERVAL);
 const letterSource$ = fromEvent(letterEmitter, LetterEmitter.LETTER_EVENT);
+
+let nextClientId = 0;
 
 const getRequestHandler = () => {
   return {
@@ -15,8 +18,7 @@ const getRequestHandler = () => {
       let subscription;
 
       return new Flowable((subscriber) => {
-
-        const letterSourceSubscription = null;
+        let letterSourceSubscription = null;
 
         /**
          * The stream of messages the client wants the server to send to it.
@@ -24,30 +26,35 @@ const getRequestHandler = () => {
         subscriber.onSubscribe({
           cancel: () => {
             letterSourceSubscription.unsubscribe();
-            console.log('Client cancelled subscription.');
+            logger.info('Client cancelled subscription.');
           },
 
           request: (maxSupportedStreamSize) => {
+            logger.info(
+              `Client requesting up to ${maxSupportedStreamSize} payloads.`
+            );
 
-            console.log(`Client requesting up to ${maxSupportedStreamSize} payloads.`);
-
+            const thisClientId = ++nextClientId;
             let streamed = 0;
 
             letterSourceSubscription = letterSource$.subscribe((letter) => {
+              setTimeout(() => {
+                streamed++;
 
-              streamed++;
+                const nextMessage = buildMessage(letter);
+                subscriber.onNext(nextMessage);
 
-              const nextMessage = buildMessage(letter);
-              // subscriber.onNext(nextMessage);
+                logger.info(
+                  `Server transmitted payload ${streamed} ` +
+                    `${JSON.stringify(nextMessage)}` +
+                    ` to client ${thisClientId}`
+                );
 
-              console.log(
-                `Server transmitted payload ${streamed}.`,
-                nextMessage
-              );
-              // if (streamed === maxSupportedStreamSize) {
-              //   console.log('Max transmitted limit reached.');
-              //   letterSourceSubscription.unsubscribe();
-              // }
+                if (streamed === maxSupportedStreamSize) {
+                  logger.info('Max transmitted limit reached.');
+                  letterSourceSubscription.unsubscribe();
+                }
+              }, 0);
             });
           }
         });
@@ -58,17 +65,17 @@ const getRequestHandler = () => {
         clientFlowable.subscribe({
           onSubscribe: (sub) => {
             subscription = sub;
-            console.log('Server subscribed to client channel.');
+            logger.info('Server subscribed to client channel.');
             subscription.request(1);
           },
 
           onNext: (clientPayload) => {
-            console.log('Server received payload from client.', clientPayload);
+            logger.info('Server received payload from client.', clientPayload);
             subscription.request(1);
           },
 
           onComplete: () => {
-            console.log('Server received end of client stream');
+            logger.info('Server received end of client stream');
           }
         });
       });
