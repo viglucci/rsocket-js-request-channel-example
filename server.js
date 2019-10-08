@@ -1,61 +1,54 @@
 const { RSocketServer } = require('rsocket-core');
 const RSocketWebsocketServer = require('rsocket-websocket-server').default;
 const { Flowable } = require('rsocket-flowable');
+const { fromEvent } = require('rxjs');
 const LetterEmitter = require('./lib/LetterEmitter');
-const Queue = require('./lib/Queue');
 const { buildMessage } = require('./lib/util');
 
-const QUEUE_FLUSH_INTERVAL = 100;
 const EMIT_LETTER_INTERVAL = 250;
-
-const q = new Queue(10);
 const letterEmitter = new LetterEmitter(EMIT_LETTER_INTERVAL);
-letterEmitter.on(LetterEmitter.LETTER_EVENT, (letter) => {
-  q.add(letter);
-});
+const letterSource$ = fromEvent(letterEmitter, LetterEmitter.LETTER_EVENT);
 
 const getRequestHandler = () => {
   return {
     requestChannel: (clientFlowable) => {
-
       let subscription;
 
       return new Flowable((subscriber) => {
 
-        let canceled = false;
+        const letterSourceSubscription = null;
 
         /**
          * The stream of messages the client wants the server to send to it.
          */
         subscriber.onSubscribe({
-
           cancel: () => {
-            canceled = true;
-            console.log("Subscription was canceled.");
+            letterSourceSubscription.unsubscribe();
+            console.log('Client cancelled subscription.');
           },
 
           request: (maxSupportedStreamSize) => {
+
+            console.log(`Client requesting up to ${maxSupportedStreamSize} payloads.`);
+
             let streamed = 0;
 
-            const flushQueue = () => {
-              if (!canceled) {
-                while(q.size() && streamed < maxSupportedStreamSize && !canceled) {
-                  streamed++;
-                  const nextMessage = buildMessage(q.remove());
-                  subscriber.onNext(nextMessage);
-                  console.log(`Server transmitted payload ${streamed}.`, nextMessage);
-                }
-                scheduleQueueFlush();
-              }
-            };
+            letterSourceSubscription = letterSource$.subscribe((letter) => {
 
-            const scheduleQueueFlush = () => {
-              setTimeout(() => {
-                flushQueue();
-              }, QUEUE_FLUSH_INTERVAL);
-            };
+              streamed++;
 
-            scheduleQueueFlush();
+              const nextMessage = buildMessage(letter);
+              // subscriber.onNext(nextMessage);
+
+              console.log(
+                `Server transmitted payload ${streamed}.`,
+                nextMessage
+              );
+              // if (streamed === maxSupportedStreamSize) {
+              //   console.log('Max transmitted limit reached.');
+              //   letterSourceSubscription.unsubscribe();
+              // }
+            });
           }
         });
 
@@ -63,7 +56,6 @@ const getRequestHandler = () => {
          * The stream of messages the server wants the client to send to it.
          */
         clientFlowable.subscribe({
-
           onSubscribe: (sub) => {
             subscription = sub;
             console.log('Server subscribed to client channel.');
@@ -71,7 +63,7 @@ const getRequestHandler = () => {
           },
 
           onNext: (clientPayload) => {
-            console.log('Server received payload.', clientPayload);
+            console.log('Server received payload from client.', clientPayload);
             subscription.request(1);
           },
 
@@ -81,7 +73,7 @@ const getRequestHandler = () => {
         });
       });
     }
-  }
+  };
 };
 
 const transport = new RSocketWebsocketServer({
