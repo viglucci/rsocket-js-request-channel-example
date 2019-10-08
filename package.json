@@ -19,5 +19,8 @@
   "scripts": {
     "server": "node server.js",
     "client": "node client.js"
+  },
+  "devDependencies": {
+    "winston": "^3.2.1"
   }
 }

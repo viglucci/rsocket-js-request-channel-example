@@ -2,6 +2,15 @@ const { RSocketClient } = require('rsocket-core');
 const RSocketWebsocketClient = require('rsocket-websocket-client').default;
 const WebSocket = require('ws');
 const { Flowable } = require('rsocket-flowable');
+const winston = require('winston');
+const { createLogger } = winston;
+
+const logger = createLogger({
+  format: winston.format.simple(),
+  transports: [
+    new winston.transports.Console()
+  ]
+});
 
 const transportOptions = {
   url: 'ws://localhost:7777',
@@ -22,7 +31,7 @@ const client = new RSocketClient({ setup, transport });
 
 client.connect().subscribe({
   onComplete: (socket) => {
-    console.log('Client connected to the RSocket server');
+    logger.info('Client connected to the RSocket server');
 
     let clientRequests = ['a', 'b', 'c', 'd', 'e', 'f'];
 
@@ -34,17 +43,20 @@ client.connect().subscribe({
 
     let subscription;
 
-    socket.requestChannel(Flowable.just(...clientRequests)).subscribe({
+    // const stream = Flowable.just(...clientRequests);
+    const stream = Flowable.just([]);
+
+    socket.requestChannel(stream).subscribe({
       onSubscribe: (sub) => {
         subscription = sub;
-        console.log(`Client is establishing a channel`);
+        logger.info(`Client is establishing a channel`);
         subscription.request(0x7fffffff);
       },
       onNext: (response) => {
-        console.log(response);
+        logger.info(new Date().toString(), response);
       },
       onComplete: () => {
-        console.log(`Client received end of server stream`);
+        logger.info(`Client received end of server stream`);
       }
     });
   }
