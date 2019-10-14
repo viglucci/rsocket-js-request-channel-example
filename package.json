@@ -17,8 +17,8 @@
     "ws": "^7.1.2"
   },
   "scripts": {
-    "server": "node server.js",
-    "client": "node client.js"
+    "server": "node server/server.js",
+    "client": "node client/client.js"
   },
   "devDependencies": {
     "winston": "^3.2.1"
