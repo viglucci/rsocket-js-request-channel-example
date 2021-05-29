@@ -14,7 +14,7 @@
     "rsocket-websocket-client": "^0.0.10",
     "rsocket-websocket-server": "^0.0.10",
     "rxjs": "^6.5.3",
-    "ws": "^7.1.2"
+    "ws": "^7.4.6"
   },
   "scripts": {
     "server": "node server.js",
